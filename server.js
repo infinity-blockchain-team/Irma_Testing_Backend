@@ -9,7 +9,8 @@ const { Connection, PublicKey } = require('@solana/web3.js');
 
 const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 // const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
+// const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
+const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
 // const TREASURY_WALLET = 'GdJ3xQmw68L8r4crfLu7eigoCFvfL6pAvNL9ETn5JBy8';
 
 const PORT=process.env.PORT || 5000;
@@ -64,17 +65,84 @@ app.get("/",(req,res)=>{
 // }
 
 
-async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetries = 10, delayMs = 2000) {
+// async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetries = 10, delayMs = 2000) {
+//   try {
+//     let tx = null;
+//     for (let i = 0; i < maxRetries; i++) {
+//       tx = await connection.getParsedTransaction(txid, { commitment: "confirmed" });
+//       if (tx) break;
+//       await new Promise(res => setTimeout(res, delayMs));
+//     }
+
+//     if (!tx) {
+//       return { status: false, message: "Transaction not found after waiting" };
+//     }
+
+//     const transferInstruction = tx.transaction.message.instructions.find(i =>
+//       i.parsed?.type === "transfer" &&
+//       i.parsed.info.source === userWallet &&
+//       i.parsed.info.destination === TREASURY_WALLET
+//     );
+
+//     if (!transferInstruction) {
+//       return { status: false, message: "No valid transfer to treasury found in transaction" };
+//     }
+
+//     const lamports = transferInstruction.parsed.info.lamports;
+//     const amountInSOL = lamports / 1e9;
+
+//     if (amountInSOL < expectedAmount) {
+//       return { status: false, message: `Transferred amount (${amountInSOL} SOL) is less than expected (${expectedAmount} SOL)` };
+//     }
+
+//     return { status: true, message: "Transaction verified", confirmedAmount: amountInSOL };
+
+//   } catch (error) {
+//     console.error("Error verifying transaction:", error);
+//     return { status: false, message: "Internal error during verification" };
+//   }
+// }
+
+
+
+async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetries = 30, initialDelayMs = 1000) {
   try {
-    let tx = null;
-    for (let i = 0; i < maxRetries; i++) {
-      tx = await connection.getParsedTransaction(txid, { commitment: "confirmed" });
-      if (tx) break;
-      await new Promise(res => setTimeout(res, delayMs));
+    // Step 1: Poll for transaction confirmation using getSignatureStatuses
+    let status = null;
+    let retryCount = 0;
+    let delay = initialDelayMs;
+
+    while (retryCount < maxRetries) {
+      const statuses = await connection.getSignatureStatuses([txid], { searchTransactionHistory: true });
+      status = statuses.value[0];
+
+      if (status !== null) {
+        if (status.err) {
+          console.log(`Transaction failed with error: ${JSON.stringify(status.err)}`);
+          return { status: false, message: "Transaction failed on-chain" };
+        }
+        if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+          console.log(`Transaction confirmed in slot ${status.slot} with status: ${status.confirmationStatus}`);
+          break; // Proceed to parsing
+        }
+      }
+
+      // Not found or not yet confirmed; retry with backoff
+      console.log(`Transaction ${txid} not confirmed yet (attempt ${retryCount + 1}/${maxRetries}). Waiting ${delay}ms...`);
+      await new Promise(res => setTimeout(res, delay));
+      retryCount++;
+      delay = Math.min(delay * 1.5, 5000); // Exponential backoff, cap at 5s
     }
 
+    if (status === null || status.confirmationStatus !== 'confirmed' && status.confirmationStatus !== 'finalized') {
+      return { status: false, message: "Transaction not confirmed after max retries (may be dropped or expired)" };
+    }
+
+    // Step 2: Once confirmed, fetch parsed transaction details
+    const tx = await connection.getParsedTransaction(txid, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
+
     if (!tx) {
-      return { status: false, message: "Transaction not found after waiting" };
+      return { status: false, message: "Parsed transaction not found (unexpected after confirmation)" };
     }
 
     const transferInstruction = tx.transaction.message.instructions.find(i =>
@@ -84,8 +152,16 @@ async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetr
     );
 
     if (!transferInstruction) {
+      console.log("No matching transfer instruction found. Full instructions:", JSON.stringify(tx.transaction.message.instructions));
       return { status: false, message: "No valid transfer to treasury found in transaction" };
     }
+
+    console.log("Transfer details:", {
+      type: transferInstruction.parsed?.type,
+      source: transferInstruction.parsed?.info?.source,
+      destination: transferInstruction.parsed?.info?.destination,
+      lamports: transferInstruction.parsed?.info?.lamports
+    });
 
     const lamports = transferInstruction.parsed.info.lamports;
     const amountInSOL = lamports / 1e9;
@@ -98,10 +174,13 @@ async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetr
 
   } catch (error) {
     console.error("Error verifying transaction:", error);
+    if (error.response && error.response.status === 429) {
+      // Handle rate limit specifically (e.g., retry after delay)
+      console.log("Rate limit hit; consider switching to a dedicated RPC provider.");
+    }
     return { status: false, message: "Internal error during verification" };
   }
 }
-
 
 
 
@@ -242,4 +321,5 @@ console.log("hello world")
 
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
+
 })
