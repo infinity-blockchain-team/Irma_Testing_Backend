@@ -7,12 +7,12 @@ app.use(cors())
 const {RecordSold,TokenBoughtRecord,TransactionRecord}=require("./model/model")
 const { Connection, PublicKey } = require('@solana/web3.js');
 
-// const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+// const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 // const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
 const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
 const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' 
- const  usdtMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' 
+ const  usdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' 
 // const TREASURY_WALLET = 'GdJ3xQmw68L8r4crfLu7eigoCFvfL6pAvNL9ETn5JBy8';
 
 const { getAssociatedTokenAddress } = require('@solana/spl-token');
@@ -572,4 +572,5 @@ console.log("hello world")
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
+
 
