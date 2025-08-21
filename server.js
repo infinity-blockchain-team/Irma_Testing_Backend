@@ -7,13 +7,14 @@ app.use(cors())
 const {RecordSold,TokenBoughtRecord,TransactionRecord}=require("./model/model")
 const { Connection, PublicKey } = require('@solana/web3.js');
 
-const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+// const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+const connection = new Connection("https://solana-mainnet.g.alchemy.com/v2/5pga0rTwblyZSAnBL_lIHdl2SVGKc4xe", "confirmed");
 // const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 // const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
-// const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
-const TREASURY_WALLET = '3GDVzHsJkVHat1QyoCSt9QKyQjxW3QWLeEEPmxuyu7D1';
-const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' 
- const  usdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' 
+const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
+// const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'   for usdc devnet
+const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+const  usdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 // const TREASURY_WALLET = 'GdJ3xQmw68L8r4crfLu7eigoCFvfL6pAvNL9ETn5JBy8';
 
 const { getAssociatedTokenAddress } = require('@solana/spl-token');
@@ -108,7 +109,7 @@ async function verifySolanaTransaction(txid, userWallet, expectedAmount, maxRetr
   }
 }
 
-async function waitForParsedTransaction(txid, connection, maxRetries = 5) {
+async function waitForParsedTransaction(txid, connection, maxRetries = 30) {
   for (let i = 0; i < maxRetries; i++) {
     const tx = await connection.getParsedTransaction(txid, { commitment: "confirmed" });
     if (tx) return tx;
@@ -118,11 +119,192 @@ async function waitForParsedTransaction(txid, connection, maxRetries = 5) {
   return null;
 }
 
-async function verifyUsdcTransaction(
+
+// async function verifyUsdtTransaction(
+//   txid,
+//   userWallet,
+//   expectedAmount
+
+// ) {
+//   try {
+
+
+  
+//     const treasuryTokenAccount = await getAssociatedTokenAddress(
+//       new PublicKey(usdtMint),
+//       new PublicKey(TREASURY_WALLET),
+//       false
+//     );
+
+//     const tx = await waitForParsedTransaction(txid, connection, 5);
+    
+//     if (!tx) {
+//       return { status: false, message: 'Transaction not confirmed after retries' };
+//     }
+
+
+//     const instructions = tx.transaction.message.instructions;
+
+//     const tokenTransfer = instructions.find(i =>
+//       i.program === 'spl-token' &&
+//       i.parsed?.type === 'transfer' &&
+//       i.parsed.info?.authority === userWallet &&
+//       i.parsed.info?.destination === treasuryTokenAccount.toBase58()
+//     );
+// //  console.log(instructions)
+//    console.log("Type:", tokenTransfer.parsed?.type);
+//   console.log("Source:", tokenTransfer.parsed?.info?.authority);
+//   console.log("Destination:", tokenTransfer.parsed?.info?.destination);
+//     if (!tokenTransfer) {
+//       return { status: false, message: ' No valid USDC transfer to treasury found' };
+//     }
+
+
+//     const amountRaw = tokenTransfer.parsed.info.amount;
+//     const amount = parseFloat(amountRaw) / 1e6; // USDT = 6 decimals
+
+//     if (amount < expectedAmount) {
+//       return {
+//         status: false,
+//         message: ` Transferred amount ${amount} < expected ${expectedAmount}`
+//       };
+//     }
+
+//     return {
+//       status: true,
+//       message: ' USDT transaction verified',
+//       confirmedAmount: amount
+//     };
+
+//   } catch (error) {
+//     console.error(' Error verifying USDT transaction:', error);
+//     return { status: false, message: ' Internal server error during verification' };
+//   }
+// }
+
+
+async function verifyUsdtTransaction(
   txid,
   userWallet,
   expectedAmount
 ) {
+  try {
+    // Get Treasury’s USDT ATA (Associated Token Account)
+    const treasuryTokenAccount = await getAssociatedTokenAddress(
+      new PublicKey(usdtMint),
+      new PublicKey(TREASURY_WALLET),
+      false
+    );
+
+    // Wait until transaction is confirmed & parsed
+    const tx = await waitForParsedTransaction(txid, connection, 5);
+    if (!tx) {
+      return { status: false, message: 'Transaction not confirmed after retries' };
+    }
+
+    const instructions = tx.transaction.message.instructions;
+
+    // Find USDT transfer instruction
+    const tokenTransfer = instructions.find(i =>
+      i.program === 'spl-token' &&
+      i.parsed?.type === 'transfer' &&
+      i.parsed.info?.authority === userWallet &&
+      i.parsed.info?.destination === treasuryTokenAccount.toBase58()
+    );
+
+    if (!tokenTransfer) {
+      return { status: false, message: 'No valid USDT transfer to treasury found' };
+    }
+
+    // Debug logs
+    console.log("Type:", tokenTransfer.parsed?.type);
+    console.log("Authority:", tokenTransfer.parsed?.info?.authority);
+    console.log("Destination:", tokenTransfer.parsed?.info?.destination);
+
+    // Extract amount
+    const amountRaw = tokenTransfer.parsed.info.amount; // string
+    const amount = Number(BigInt(amountRaw)) / 1e6; // USDT has 6 decimals
+
+    if (amount < expectedAmount) {
+      return {
+        status: false,
+        message: `Transferred ${amount} < expected ${expectedAmount}`
+      };
+    }
+
+    return {
+      status: true,
+      message: 'USDT transaction verified',
+      confirmedAmount: amount
+    };
+
+  } catch (error) {
+    console.error('Error verifying USDT transaction:', error);
+    return { status: false, message: 'Internal server error during verification' };
+  }
+}
+
+
+// async function verifyUsdcTransaction(
+//   txid,
+//   userWallet,
+//   expectedAmount
+// ) {
+//   try {
+//     const treasuryTokenAccount = await getAssociatedTokenAddress(
+//       new PublicKey(usdcMint),
+//       new PublicKey(TREASURY_WALLET),
+//       false
+//     );
+
+//     const tx = await waitForParsedTransaction(txid, connection, 5);
+    
+//     if (!tx) {
+//       return { status: false, message: 'Transaction not confirmed after retries' };
+//     }
+
+
+//     const instructions = tx.transaction.message.instructions;
+
+//     const tokenTransfer = instructions.find(i =>
+//       i.program === 'spl-token' &&
+//       i.parsed?.type === 'transfer' &&
+//       i.parsed.info?.authority === userWallet &&
+//       i.parsed.info?.destination === treasuryTokenAccount.toBase58()
+//     );
+// //  console.log(instructions)
+//    console.log("Type:", tokenTransfer.parsed?.type);
+//   console.log("Source:", tokenTransfer.parsed?.info?.authority);
+//   console.log("Destination:", tokenTransfer.parsed?.info?.destination);
+//     if (!tokenTransfer) {
+//       return { status: false, message: ' No valid USDC transfer to treasury found' };
+//     }
+
+
+//     const amountRaw = tokenTransfer.parsed.info.amount;
+//     const amount = parseFloat(amountRaw) / 1e6; // USDC = 6 decimals
+
+//     if (amount < expectedAmount) {
+//       return {
+//         status: false,
+//         message: ` Transferred amount ${amount} < expected ${expectedAmount}`
+//       };
+//     }
+
+//     return {
+//       status: true,
+//       message: ' USDC transaction verified',
+//       confirmedAmount: amount
+//     };
+
+//   } catch (error) {
+//     console.error(' Error verifying USDC transaction:', error);
+//     return { status: false, message: ' Internal server error during verification' };
+//   }
+// }
+
+
+async function verifyUsdcTransaction(txid, userWallet, expectedAmount) {
   try {
     const treasuryTokenAccount = await getAssociatedTokenAddress(
       new PublicKey(usdcMint),
@@ -131,11 +313,9 @@ async function verifyUsdcTransaction(
     );
 
     const tx = await waitForParsedTransaction(txid, connection, 5);
-    
     if (!tx) {
       return { status: false, message: 'Transaction not confirmed after retries' };
     }
-
 
     const instructions = tx.transaction.message.instructions;
 
@@ -145,94 +325,40 @@ async function verifyUsdcTransaction(
       i.parsed.info?.authority === userWallet &&
       i.parsed.info?.destination === treasuryTokenAccount.toBase58()
     );
-//  console.log(instructions)
-   console.log("Type:", tokenTransfer.parsed?.type);
-  console.log("Source:", tokenTransfer.parsed?.info?.authority);
-  console.log("Destination:", tokenTransfer.parsed?.info?.destination);
+
     if (!tokenTransfer) {
-      return { status: false, message: ' No valid USDC transfer to treasury found' };
+      return { status: false, message: 'No valid USDC transfer to treasury found' };
     }
 
+    // Debug logs
+    console.log("Type:", tokenTransfer.parsed?.type);
+    console.log("Authority:", tokenTransfer.parsed?.info?.authority);
+    console.log("Destination:", tokenTransfer.parsed?.info?.destination);
 
-    const amountRaw = tokenTransfer.parsed.info.amount;
-    const amount = parseFloat(amountRaw) / 1e6; // USDC = 6 decimals
+    // Safer amount handling
+    const amountRaw = BigInt(tokenTransfer.parsed.info.amount); // raw integer
+    const decimals = 1_000_000n; // 6 decimals
+    const amount = Number(amountRaw) / Number(decimals); // Convert safely
 
     if (amount < expectedAmount) {
       return {
         status: false,
-        message: ` Transferred amount ${amount} < expected ${expectedAmount}`
+        message: `Transferred amount ${amount} < expected ${expectedAmount}`
       };
     }
 
     return {
       status: true,
-      message: ' USDC transaction verified',
+      message: 'USDC transaction verified',
       confirmedAmount: amount
     };
 
   } catch (error) {
-    console.error(' Error verifying USDC transaction:', error);
-    return { status: false, message: ' Internal server error during verification' };
+    console.error('Error verifying USDC transaction:', error);
+    return { status: false, message: 'Internal server error during verification' };
   }
 }
-async function verifyUsdtTransaction(
-  txid,
-  userWallet,
-  expectedAmount
 
-) {
-  try {
-    const treasuryTokenAccount = await getAssociatedTokenAddress(
-      new PublicKey(usdtMint),
-      new PublicKey(TREASURY_WALLET),
-      false
-    );
-
-    const tx = await waitForParsedTransaction(txid, connection, 5);
-    
-    if (!tx) {
-      return { status: false, message: 'Transaction not confirmed after retries' };
-    }
-
-
-    const instructions = tx.transaction.message.instructions;
-
-    const tokenTransfer = instructions.find(i =>
-      i.program === 'spl-token' &&
-      i.parsed?.type === 'transfer' &&
-      i.parsed.info?.authority === userWallet &&
-      i.parsed.info?.destination === treasuryTokenAccount.toBase58()
-    );
-//  console.log(instructions)
-   console.log("Type:", tokenTransfer.parsed?.type);
-  console.log("Source:", tokenTransfer.parsed?.info?.authority);
-  console.log("Destination:", tokenTransfer.parsed?.info?.destination);
-    if (!tokenTransfer) {
-      return { status: false, message: ' No valid USDC transfer to treasury found' };
-    }
-
-
-    const amountRaw = tokenTransfer.parsed.info.amount;
-    const amount = parseFloat(amountRaw) / 1e6; // USDT = 6 decimals
-
-    if (amount < expectedAmount) {
-      return {
-        status: false,
-        message: ` Transferred amount ${amount} < expected ${expectedAmount}`
-      };
-    }
-
-    return {
-      status: true,
-      message: ' USDT transaction verified',
-      confirmedAmount: amount
-    };
-
-  } catch (error) {
-    console.error(' Error verifying USDT transaction:', error);
-    return { status: false, message: ' Internal server error during verification' };
-  }
-}
 
 
 
@@ -536,6 +662,7 @@ console.log("hello world")
 
 
     const result = await verifyUsdtTransaction(txid, address, expectedAmount);
+
     if (!result.status) {
       return res.status(400).json({ status: false, message: "Transaction verification failed" });
     }
@@ -573,6 +700,3 @@ console.log("hello world")
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
-
-
-
