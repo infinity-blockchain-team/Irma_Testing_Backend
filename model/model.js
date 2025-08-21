@@ -3,12 +3,19 @@ const Schema=mongoose.Schema;
 const recordSoldSchema=new Schema({
     recievedSol:{
          type:Number,
-        required:true
+          default:0
     },
     soldTokens:{
         type:Number,
-        required:true,
         default:0
+    },
+    recievedUsdc:{
+         type:Number,
+          default:0
+    },
+    recievedUsdt:{
+         type:Number,
+          default:0
     }
 
 })
