@@ -191,7 +191,8 @@ async function verifyUsdtTransaction(
   try {
     // Get Treasury’s USDT ATA (Associated Token Account)
     const treasuryTokenAccount = await getAssociatedTokenAddress(
-      new PublicKey(usdtMint),
+      // new PublicKey(usdtMint),
+      new PublicKey(usdcMint),
       new PublicKey(TREASURY_WALLET),
       false
     );
@@ -700,4 +701,5 @@ console.log("hello world")
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
+
 
