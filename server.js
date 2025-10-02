@@ -11,7 +11,8 @@ const { Connection, PublicKey } = require('@solana/web3.js');
 // const connection = new Connection("https://solana-mainnet.g.alchemy.com/v2/5pga0rTwblyZSAnBL_lIHdl2SVGKc4xe", "confirmed");
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 // const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
-const TREASURY_WALLET = '3GDVzHsJkVHat1QyoCSt9QKyQjxW3QWLeEEPmxuyu7D1';
+// const TREASURY_WALLET = '3GDVzHsJkVHat1QyoCSt9QKyQjxW3QWLeEEPmxuyu7D1';
+const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
 // const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'   for usdc devnet
 const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
 const  usdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
@@ -701,6 +702,7 @@ console.log("hello world")
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
+
 
 
 
