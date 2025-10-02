@@ -8,13 +8,13 @@ const {RecordSold,TokenBoughtRecord,TransactionRecord}=require("./model/model")
 const { Connection, PublicKey } = require('@solana/web3.js');
 
 // const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
-// const connection = new Connection("https://solana-mainnet.g.alchemy.com/v2/5pga0rTwblyZSAnBL_lIHdl2SVGKc4xe", "confirmed");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const connection = new Connection("https://solana-mainnet.g.alchemy.com/v2/5pga0rTwblyZSAnBL_lIHdl2SVGKc4xe", "confirmed");
+// const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 // const TREASURY_WALLET = '5pTPVvQeeEY1RxdN6GEoVTLkQNc7yqSNADFrzTAJhCN4';
 // const TREASURY_WALLET = '3GDVzHsJkVHat1QyoCSt9QKyQjxW3QWLeEEPmxuyu7D1';
 const TREASURY_WALLET = 'CZtRGpVj1V98uBYu2XBXik5Yd4RpmKbkcU5sAZt9Wn7v';
 // const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'   for usdc devnet
-const  usdcMint = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+const  usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const  usdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 // const TREASURY_WALLET = 'GdJ3xQmw68L8r4crfLu7eigoCFvfL6pAvNL9ETn5JBy8';
 
@@ -192,8 +192,8 @@ async function verifyUsdtTransaction(
   try {
     // Get Treasury’s USDT ATA (Associated Token Account)
     const treasuryTokenAccount = await getAssociatedTokenAddress(
-      // new PublicKey(usdtMint),
-      new PublicKey(usdcMint),
+      new PublicKey(usdtMint),
+      // new PublicKey(usdcMint),
       new PublicKey(TREASURY_WALLET),
       false
     );
@@ -702,6 +702,7 @@ console.log("hello world")
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
+
 
 
 
